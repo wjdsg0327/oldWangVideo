@@ -1,0 +1,13 @@
+[Desktop Entry]
+Version=1.0
+Name=星流创作台
+Comment=面向多供应商的 AI 图片与视频内容生成工作台
+# The Exec line includes %u to pass the URL to the application
+Exec=/usr/local/bin/OldWangVideo %u
+Terminal=false
+Type=Application
+Icon=OldWangVideo
+Categories=Utility;
+StartupWMClass=OldWangVideo
+
+ 

@@ -1,0 +1,48 @@
+# 这是星流创作台的 Wails 构建配置。
+# 修改 `info` 或 `fileAssociations` 后运行 wails3 task common:update:build-assets 同步平台资源。
+# 同步命令会覆盖平台资源中的产品元数据。
+version: '3'
+
+# 这些信息会写入各平台的应用资源。
+info:
+  companyName: "OldWang Studio" # 公司或组织名称
+  productName: "星流创作台" # 应用显示名称
+  productIdentifier: "com.oldwang.studio" # 唯一产品标识
+  description: "面向多供应商的 AI 图片与视频内容生成工作台" # 应用描述
+  copyright: "© 2026 OldWang Studio" # 版权信息
+  comments: "OpenAI API 兼容的本地桌面创作工具" # 平台资源备注
+  version: "0.1.0" # 应用版本
+  # macOS 图标名应与 .icon 文件名一致，默认使用 appicon。
+  # cfBundleIconName: "appicon"
+
+# 开发模式配置。
+dev_mode:
+  root_path: .
+  log_level: warn
+  debounce: 1000
+  ignore:
+    dir:
+      - .git
+      - node_modules
+      - frontend
+      - bin
+    file:
+      - .DS_Store
+      - .gitignore
+      - .gitkeep
+      - "*_test.go"
+    watched_extension:
+      - "*.go"
+      - "*.js" # 监听通过 wails:include 引入的 JavaScript 文件。
+      - "*.ts" # 前端目录会被上面的排除规则整体忽略。
+    git_ignore: true
+  executes:
+    - cmd: wails3 build DEV=true
+      type: blocking
+    - cmd: wails3 task common:dev:frontend
+      type: background
+    - cmd: wails3 task run
+      type: primary
+
+# 文件关联配置，按需添加扩展名。
+fileAssociations: []
