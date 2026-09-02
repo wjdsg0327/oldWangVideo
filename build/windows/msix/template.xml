@@ -10,11 +10,11 @@
     <Installer
         Path="oldwangvideo.exe"
         Arguments=""
-        InstallLocation="C:\Program Files\OldWang Studio\星流创作台">
+        InstallLocation="C:\Program Files\OldWang Studio\老王创作台">
     </Installer>
     <PackageInformation
-        PackageName="星流创作台"
-        PackageDisplayName="星流创作台"
+        PackageName="老王创作台"
+        PackageDisplayName="老王创作台"
         PublisherName="CN=OldWang Studio"
         PublisherDisplayName="OldWang Studio"
         Version="0.1.0.0"
@@ -27,7 +27,7 @@
             <Application
                 Id="com.oldwang.video"
                 Description="多供应商 AI 内容生成桌面工作台"
-                DisplayName="星流创作台"
+                DisplayName="老王创作台"
                 ExecutableName="oldwangvideo.exe"
                 EntryPoint="Windows.FullTrustApplication">
                 
@@ -41,7 +41,7 @@
         </Dependencies>
         <Properties>
             <Framework>false</Framework>
-            <DisplayName>星流创作台</DisplayName>
+            <DisplayName>老王创作台</DisplayName>
             <PublisherDisplayName>OldWang Studio</PublisherDisplayName>
             <Description>多供应商 AI 内容生成桌面工作台</Description>
             <Logo>Assets\AppIcon.png</Logo>

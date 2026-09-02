@@ -76,21 +76,28 @@ export const useAppStore = defineStore("app", {
     async initialize() {
       if (this.initialized || this.loading) return;
       this.loading = true;
-      if (!unsubscribeTasks) {
-        unsubscribeTasks = await bridge.subscribeTasks((task) => this.mergeTask(task));
-      }
       try {
-        const bootstrap = await bridge.getBootstrap();
-        this.providers = bootstrap.data.providers ?? [];
-        this.models = bootstrap.data.models ?? [];
-        this.templates = bootstrap.data.promptTemplates ?? [];
-        this.presets = bootstrap.data.providerPresets ?? [];
-        this.dataDir = bootstrap.dataDir;
-        bootstrap.activeTasks?.forEach((task) => this.mergeTask(task));
-        this.historyPage = { items: bootstrap.data.recentHistory ?? [], total: bootstrap.data.recentHistory?.length ?? 0, page: 1, pageSize: 24 };
-        this.initialized = true;
-      } catch (error) {
-        this.toast(errorText(error), "error");
+        try {
+          const bootstrap = await bridge.getBootstrap();
+          this.providers = bootstrap.data.providers ?? [];
+          this.models = bootstrap.data.models ?? [];
+          this.templates = bootstrap.data.promptTemplates ?? [];
+          this.presets = bootstrap.data.providerPresets ?? [];
+          this.dataDir = bootstrap.dataDir;
+          bootstrap.activeTasks?.forEach((task) => this.mergeTask(task));
+          this.historyPage = { items: bootstrap.data.recentHistory ?? [], total: bootstrap.data.recentHistory?.length ?? 0, page: 1, pageSize: 24 };
+          this.initialized = true;
+        } catch (error) {
+          this.toast(errorText(error), "error");
+        }
+        // 任务事件只负责实时刷新，不能阻断首屏数据库数据的加载。
+        if (this.initialized && !unsubscribeTasks) {
+          try {
+            unsubscribeTasks = await bridge.subscribeTasks((task) => this.mergeTask(task));
+          } catch (error) {
+            this.toast(`任务事件订阅失败：${errorText(error)}`, "error");
+          }
+        }
       } finally {
         this.loading = false;
       }

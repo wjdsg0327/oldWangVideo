@@ -37,7 +37,8 @@ func normalizeGenerateRequest(request GenerateRequest) GenerateRequest {
 	if request.Count <= 0 {
 		request.Count = 1
 	}
-	if request.Seconds <= 0 {
+	// -1 是部分视频供应商支持的智能时长值，不能在统一归一化时被改写。
+	if request.Seconds <= 0 && request.Seconds != -1 {
 		request.Seconds = 5
 	}
 	return request

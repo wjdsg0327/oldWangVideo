@@ -1,7 +1,8 @@
 <script setup lang="ts">
 import { computed, onMounted, ref, watch } from "vue";
-import { Bookmark, BookmarkCheck, Download, Eye, Film, Image as ImageIcon, Play, RefreshCw, Search, Trash2 } from "lucide-vue-next";
+import { Bookmark, BookmarkCheck, Download, Eye, FileText, Film, Image as ImageIcon, Play, RefreshCw, Search, Trash2 } from "lucide-vue-next";
 import MediaPreviewDialog from "../components/MediaPreviewDialog.vue";
+import PromptPreviewDialog from "../components/PromptPreviewDialog.vue";
 import { useAppStore } from "../stores/app";
 import type { Capability, GenerationHistory, MediaAsset } from "../types";
 
@@ -12,6 +13,8 @@ const capability = ref<Capability | "">("");
 const selectedIds = ref<Set<number>>(new Set());
 const previewAsset = ref<MediaAsset | null>(null);
 const previewTitle = ref("");
+const promptPreview = ref<string | null>(null);
+const promptPreviewTitle = ref("");
 
 const title = computed(() => props.favoriteOnly ? "收藏结果" : "生成历史");
 const emptyText = computed(() => props.favoriteOnly ? "还没有收藏结果" : "还没有生成记录");
@@ -83,6 +86,13 @@ function openPreview(item: GenerationHistory) {
   previewTitle.value = `${item.providerName} · ${item.modelName}`;
 }
 
+function openPrompt(item: GenerationHistory) {
+  const prompt = item.request.prompt.trim();
+  if (!prompt) return;
+  promptPreview.value = prompt;
+  promptPreviewTitle.value = `${item.providerName} · ${item.modelName}`;
+}
+
 watch(() => props.favoriteOnly, () => load());
 onMounted(() => load());
 </script>
@@ -123,6 +133,7 @@ onMounted(() => load());
           <small>{{ new Date(item.createdAt).toLocaleString('zh-CN') }}</small>
         </div>
         <footer>
+          <button v-if="item.request.prompt" class="icon-button" type="button" title="查看提示词" @click="openPrompt(item)"><FileText :size="17" /></button>
           <button v-if="item.status === 'succeeded' && item.result?.assets?.[0]?.url" class="icon-button" type="button" :title="item.result.assets[0].type === 'video' ? '播放视频' : '查看图片'" @click="openPreview(item)"><Play v-if="item.result.assets[0].type === 'video'" :size="17" fill="currentColor" /><Eye v-else :size="17" /></button>
           <button class="icon-button" type="button" :title="item.favorite ? '取消收藏' : '收藏'" @click="toggleFavorite(item)"><BookmarkCheck v-if="item.favorite" :size="17" /><Bookmark v-else :size="17" /></button>
           <button v-if="item.status === 'succeeded'" class="icon-button" type="button" title="下载" @click="store.downloadTask(item.taskId)"><Download :size="17" /></button>
@@ -138,5 +149,6 @@ onMounted(() => load());
     </div>
 
     <MediaPreviewDialog v-if="previewAsset" :asset="previewAsset" :title="previewTitle" @close="previewAsset = null" />
+    <PromptPreviewDialog v-if="promptPreview !== null" :prompt="promptPreview" :title="promptPreviewTitle" @close="promptPreview = null" />
   </div>
 </template>

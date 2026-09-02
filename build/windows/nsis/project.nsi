@@ -21,7 +21,7 @@ Unicode true
 ####
 ## !define INFO_PROJECTNAME    "my-project" # Default "OldWangVideo"
 ## !define INFO_COMPANYNAME    "My Company" # Default "OldWang Studio"
-## !define INFO_PRODUCTNAME    "My Product Name" # Default "星流创作台"
+## !define INFO_PRODUCTNAME    "My Product Name" # Default "老王创作台"
 ## !define INFO_PRODUCTVERSION "1.0.0"     # Default "0.1.0"
 ## !define INFO_COPYRIGHT      "(c) Now, My Company" # Default "© 2026, My Company"
 ###

@@ -59,6 +59,10 @@ func (c *Client) generateVideo(ctx context.Context, request GenerateRequest, onP
 		return c.generateSiliconFlowVideo(ctx, request, onProgress)
 	case ProfileTogether:
 		return c.generateTogetherVideo(ctx, request, onProgress)
+	case ProfileDoubao:
+		return c.generateDoubaoVideo(ctx, request, onProgress)
+	case ProfileFastAI:
+		return c.generateFastAIVideo(ctx, request, onProgress)
 	default:
 		return c.generateOpenAIVideo(ctx, request, onProgress)
 	}
@@ -401,7 +405,16 @@ func (c *Client) copyMedia(ctx context.Context, result MediaResult, target io.Wr
 		return "", &APIError{Code: "empty_media_result", Message: "生成结果没有可下载的媒体"}
 	}
 	// 下载入口再次规范化媒体地址，兼容供应商或历史任务返回的相对路径。
-	resolved, err := c.resolveProviderMediaResult(result)
+	var resolved MediaResult
+	var err error
+	if c.profile == ProfileFastAI && !result.AuthenticatedURL && strings.HasPrefix(strings.ToLower(result.MimeType), "video/") {
+		// FastAIToken 返回的是带签名的临时直链，下载时不能附带令牌。
+		resolved = result
+		resolved.URL, _, err = c.resolveProviderMediaURL(result.URL)
+		resolved.AuthenticatedURL = false
+	} else {
+		resolved, err = c.resolveProviderMediaResult(result)
+	}
 	if err != nil {
 		return "", err
 	}

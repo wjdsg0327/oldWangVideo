@@ -52,6 +52,10 @@ func DetectProfile(baseURL *url.URL) ProtocolProfile {
 		return ProfileAIXORAS
 	case host == "apikey.fun" || strings.HasSuffix(host, ".apikey.fun"):
 		return ProfileAPIKeyFun
+	case host == "ark.cn-beijing.volces.com" || (strings.HasPrefix(host, "ark.") && strings.HasSuffix(host, ".volces.com")):
+		return ProfileDoubao
+	case host == "fastaitoken.com" || strings.HasSuffix(host, ".fastaitoken.com"):
+		return ProfileFastAI
 	case strings.Contains(host, "siliconflow"):
 		return ProfileSiliconFlow
 	case strings.Contains(host, "together"):
@@ -77,6 +81,31 @@ func (c *Client) rootEndpoint(versionedPath string) string {
 	return result.String()
 }
 
+// fastAISeedanceEndpoint 按官方案例固定使用 Seedance 裸域网关。
+func (c *Client) fastAISeedanceEndpoint(path string) string {
+	result := *c.baseURL
+	host := strings.ToLower(result.Hostname())
+	if host == "fastaitoken.com" || host == "www.fastaitoken.com" || host == "api.fastaitoken.com" {
+		result.Host = "fastaitoken.com"
+		result.Scheme = "https"
+	}
+	result.Path = "/" + strings.TrimLeft(path, "/")
+	result.RawPath = ""
+	result.RawQuery = ""
+	result.Fragment = ""
+	return result.String()
+}
+
+// fastAIModelsEndpoint 保留用户选择的网关，只将路径规范为通用模型接口。
+func (c *Client) fastAIModelsEndpoint() string {
+	result := *c.baseURL
+	result.Path = "/v1/models"
+	result.RawPath = ""
+	result.RawQuery = ""
+	result.Fragment = ""
+	return result.String()
+}
+
 func (c *Client) newRequest(ctx context.Context, method, endpoint, contentType string, body io.Reader, authenticated bool) (*http.Request, error) {
 	req, err := http.NewRequestWithContext(ctx, method, endpoint, body)
 	if err != nil {
@@ -89,6 +118,10 @@ func (c *Client) newRequest(ctx context.Context, method, endpoint, contentType s
 	}
 	if authenticated && c.apiKey != "" {
 		req.Header.Set("Authorization", "Bearer "+c.apiKey)
+	}
+	// FastAIToken 网关偶尔返回错误的 gzip 声明，显式要求未压缩响应可避免解码失败。
+	if c.profile == ProfileFastAI {
+		req.Header.Set("Accept-Encoding", "identity")
 	}
 	return req, nil
 }
@@ -118,9 +151,30 @@ func (c *Client) doJSON(ctx context.Context, method, endpoint string, payload an
 		_, _ = io.Copy(io.Discard, resp.Body)
 		return nil
 	}
-	decoder := json.NewDecoder(io.LimitReader(resp.Body, 32<<20))
-	if err := decoder.Decode(target); err != nil {
-		return &APIError{Code: "invalid_response", Message: "供应商返回了无法解析的数据", Detail: err.Error(), StatusCode: resp.StatusCode}
+	data, err := io.ReadAll(io.LimitReader(resp.Body, 32<<20+1))
+	if err != nil {
+		return &APIError{Code: "read_response_failed", Message: "读取供应商响应失败", Detail: err.Error(), StatusCode: resp.StatusCode, Retryable: true}
+	}
+	if len(data) > 32<<20 {
+		return &APIError{Code: "response_too_large", Message: "供应商响应超过 32 MB 限制", StatusCode: resp.StatusCode}
+	}
+	if err := json.Unmarshal(data, target); err != nil {
+		contentType := strings.TrimSpace(resp.Header.Get("Content-Type"))
+		preview := strings.Join(strings.Fields(string(data)), " ")
+		previewRunes := []rune(preview)
+		if len(previewRunes) > 240 {
+			preview = string(previewRunes[:240]) + "..."
+		}
+		message := "供应商返回了无法解析的数据，请检查 Base URL 和接口路径"
+		if c.profile == ProfileFastAI && (strings.Contains(strings.ToLower(contentType), "text/html") || strings.HasPrefix(strings.TrimSpace(string(data)), "<")) {
+			message = "FastAIToken 返回了网页而不是 JSON，请检查 Seedance 网关和 SeeDance2 令牌权限"
+		}
+		requestID := strings.TrimSpace(resp.Header.Get("X-Request-Id"))
+		detail := fmt.Sprintf("请求=%s，HTTP %d，Content-Type=%q，响应内容=%q：%v", req.URL.Redacted(), resp.StatusCode, contentType, preview, err)
+		if requestID != "" {
+			detail += "，X-Request-Id=" + requestID
+		}
+		return &APIError{Code: "invalid_response", Message: message, Detail: detail, StatusCode: resp.StatusCode}
 	}
 	return nil
 }
@@ -132,7 +186,11 @@ func (c *Client) ListModels(ctx context.Context) ([]ModelInfo, error) {
 			OwnedBy string `json:"owned_by"`
 		} `json:"data"`
 	}
-	if err := c.doJSON(ctx, http.MethodGet, c.endpoint("models"), nil, &response); err != nil {
+	endpoint := c.endpoint("models")
+	if c.profile == ProfileFastAI {
+		endpoint = c.fastAIModelsEndpoint()
+	}
+	if err := c.doJSON(ctx, http.MethodGet, endpoint, nil, &response); err != nil {
 		return nil, err
 	}
 	models := make([]ModelInfo, 0, len(response.Data))

@@ -22,6 +22,8 @@ const (
 	ProfileTogether    ProtocolProfile = "together"
 	ProfileAPIKeyFun   ProtocolProfile = "apikeyfun"
 	ProfileAIXORAS     ProtocolProfile = "aixoras"
+	ProfileDoubao      ProtocolProfile = "doubao"
+	ProfileFastAI      ProtocolProfile = "fastai"
 )
 
 type ModelInfo struct {

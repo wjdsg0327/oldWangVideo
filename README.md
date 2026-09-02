@@ -1,4 +1,4 @@
-# 星流创作台
+# 老王创作台
 
 基于 Wails v3、Vue 3 + TypeScript 和 Go 的多供应商 AI 内容生成桌面工作台。所有供应商通过 OpenAI API 兼容客户端接入，配置、模型能力、任务历史和收藏保存在本地 SQLite。
 
@@ -45,6 +45,10 @@ Windows 构建产物会写入 `bin/`。开发构建的运行时数据保存在�
 APIKEY.FUN 已提供专用预设 `https://api.apikey.fun/v1`，并单独适配图片 SSE、`/images/edits` 图生图、`/videos/generations` 异步视频以及图生视频的 `image.url` 格式。同步模型后，仍需按模型实际能力手动勾选文生图、图生图、文生视频或图生视频。
 
 AIXORAS 已提供专用预设 `https://api.aixoras.com/v1`。文生视频与图生视频分别构造独立请求，统一提交到 `/video/generations` 并通过 `/video/generations/{task_id}` 轮询；图生视频会按其协议发送 `images`、`image` 和 `input_reference` 字符串字段。
+
+豆包方舟已提供专用预设 `https://ark.cn-beijing.volces.com/api/v3`，适配 Seedance 内容生成接口 `/contents/generations/tasks`。文生视频发送文本内容，图生视频追加 `reference_image` 图片内容，任务通过 `/contents/generations/tasks/{id}` 轮询；请求默认开启音频生成并关闭水印，尺寸会映射为方舟支持的 `ratio`，时长支持工作台的 5、8、10、11、12 秒选项。
+
+FastAIToken 已提供专用预设 `https://fastaitoken.com/v1`，适配 Seedance 2.0 接口 `/seedance/api/v3/contents/generations/tasks`。创建任务返回 `id` 后，通过同路径的 `/{id}` 查询，成功视频位于 `content.video_url`；文生视频与图生视频均支持，图像会以 `data:` URL 发送，默认开启音频并关闭水印。模型 ID 使用 `doubao-seedance-2-0-260128` 或 `doubao-seedance-2-0-fast-260128`。令牌需要启用 `SeeDance2` 分组并使用按量计费模式；历史配置中的 `www.fastaitoken.com`、`api.fastaitoken.com` 或完整任务路径都会规范到案例使用的 `fastaitoken.com` Seedance 端点。
 
 `/models` 通常只返回模型标识，不能可靠推断图片或视频能力，因此应用不会自动替用户开通能力。不同供应商的媒体端点存在差异，后端会根据 Base URL 识别内置协议 profile；未知供应商默认使用 OpenAI 兼容路径。
 

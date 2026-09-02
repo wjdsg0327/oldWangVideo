@@ -105,7 +105,7 @@ func generationNotificationOptions(snapshot domain.TaskSnapshot) (notifications.
 	body := fmt.Sprintf("%s · %s 的%s已生成并保存到本地", snapshot.ProviderName, snapshot.ModelName, mediaName)
 	return notifications.NotificationOptions{
 		ID:                "generation-" + snapshot.ID,
-		Title:             "星流创作台：生成完成",
+		Title:             "老王创作台：生成完成",
 		Body:              body,
 		ThreadID:          "generation-completed",
 		InterruptionLevel: notifications.InterruptionLevelActive,

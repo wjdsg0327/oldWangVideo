@@ -42,7 +42,7 @@ onBeforeUnmount(() => store.dispose());
       <div class="brand-block">
         <div class="brand-mark"><PanelsTopLeft :size="18" /></div>
         <div>
-          <strong>星流创作台</strong>
+          <strong>老王创作台</strong>
           <span>STUDIO 01</span>
         </div>
       </div>

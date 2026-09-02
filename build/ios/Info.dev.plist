@@ -3,7 +3,7 @@
 <plist version="1.0">
 	<dict>
 		<key>CFBundleDisplayName</key>
-		<string>星流创作台 (Dev)</string>
+		<string>老王创作台 (Dev)</string>
 		<key>CFBundleExecutable</key>
 		<string>OldWangVideo</string>
 		<key>CFBundleGetInfoString</key>
@@ -11,7 +11,7 @@
 		<key>CFBundleIdentifier</key>
 		<string>com.oldwang.studio.dev</string>
 		<key>CFBundleName</key>
-		<string>星流创作台 (Dev)</string>
+		<string>老王创作台 (Dev)</string>
 		<key>CFBundlePackageType</key>
 		<string>APPL</string>
 		<key>CFBundleShortVersionString</key>

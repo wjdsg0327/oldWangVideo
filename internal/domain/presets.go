@@ -1,6 +1,6 @@
 package domain
 
-// DefaultProviderPresets 返回常见 OpenAI 兼容平台的地址模板。
+// DefaultProviderPresets 返回常见平台的地址模板。
 func DefaultProviderPresets() []ProviderPreset {
 	return []ProviderPreset{
 		{
@@ -15,6 +15,20 @@ func DefaultProviderPresets() []ProviderPreset {
 			Name:           "AIXORAS",
 			BaseURL:        "https://api.aixoras.com/v1",
 			Description:    "已独立适配文生视频与图生视频",
+			APIKeyRequired: true,
+		},
+		{
+			ID:             "doubao",
+			Name:           "豆包方舟",
+			BaseURL:        "https://ark.cn-beijing.volces.com/api/v3",
+			Description:    "豆包 Seedance 内容生成接口，支持音频视频生成",
+			APIKeyRequired: true,
+		},
+		{
+			ID:             "fastai",
+			Name:           "FastAIToken",
+			BaseURL:        "https://fastaitoken.com/v1",
+			Description:    "FastAIToken Seedance 2.0 异步视频生成接口",
 			APIKeyRequired: true,
 		},
 		{

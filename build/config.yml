@@ -1,4 +1,4 @@
-# 这是星流创作台的 Wails 构建配置。
+# 这是老王创作台的 Wails 构建配置。
 # 修改 `info` 或 `fileAssociations` 后运行 wails3 task common:update:build-assets 同步平台资源。
 # 同步命令会覆盖平台资源中的产品元数据。
 version: '3'
@@ -6,7 +6,7 @@ version: '3'
 # 这些信息会写入各平台的应用资源。
 info:
   companyName: "OldWang Studio" # 公司或组织名称
-  productName: "星流创作台" # 应用显示名称
+  productName: "老王创作台" # 应用显示名称
   productIdentifier: "com.oldwang.studio" # 唯一产品标识
   description: "面向多供应商的 AI 图片与视频内容生成工作台" # 应用描述
   copyright: "© 2026 OldWang Studio" # 版权信息

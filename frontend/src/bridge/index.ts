@@ -72,6 +72,8 @@ const mockState: BootstrapState = {
     providerPresets: [
       { id: "apikeyfun", name: "APIKEY.FUN", baseUrl: "https://api.apikey.fun/v1", description: "已适配图片与视频生成", local: false, apiKeyRequired: true },
       { id: "aixoras", name: "AIXORAS", baseUrl: "https://api.aixoras.com/v1", description: "已独立适配文生视频与图生视频", local: false, apiKeyRequired: true },
+      { id: "doubao", name: "豆包方舟", baseUrl: "https://ark.cn-beijing.volces.com/api/v3", description: "已适配 Seedance 文生视频与图生视频", local: false, apiKeyRequired: true },
+      { id: "fastai", name: "FastAIToken", baseUrl: "https://fastaitoken.com/v1", description: "已适配 Seedance 2.0 异步视频生成", local: false, apiKeyRequired: true },
       { id: "siliconflow", name: "硅基流动", baseUrl: "https://api.siliconflow.cn/v1", description: "图片与视频生成平台", local: false, apiKeyRequired: true },
       { id: "together", name: "Together AI", baseUrl: "https://api.together.xyz/v1", description: "OpenAI 兼容推理服务", local: false, apiKeyRequired: true },
       { id: "fireworks", name: "Fireworks AI", baseUrl: "https://api.fireworks.ai/inference/v1", description: "高性能文本模型服务", local: false, apiKeyRequired: true },

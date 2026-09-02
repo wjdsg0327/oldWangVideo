@@ -11,7 +11,7 @@
     !define INFO_COMPANYNAME "OldWang Studio"
 !endif
 !ifndef INFO_PRODUCTNAME
-    !define INFO_PRODUCTNAME "星流创作台"
+    !define INFO_PRODUCTNAME "老王创作台"
 !endif
 !ifndef INFO_PRODUCTVERSION
     !define INFO_PRODUCTVERSION "0.1.0"

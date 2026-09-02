@@ -484,7 +484,7 @@ onBeforeUnmount(() => {
               <option v-if="config.video" value="1280x720">1280 × 720</option>
               <option v-if="config.video" value="720x1280">720 × 1280</option>
             </select></label>
-            <label v-if="config.video"><span>时长</span><select v-model.number="draft.durationSeconds"><option :value="5">5 秒</option><option :value="8">8 秒</option><option :value="10">10 秒</option></select></label>
+            <label v-if="config.video"><span>时长</span><select v-model.number="draft.durationSeconds"><option :value="5">5 秒</option><option :value="8">8 秒</option><option :value="10">10 秒</option><option :value="11">11 秒</option><option :value="12">12 秒</option></select></label>
             <label><span>生成数量</span><input v-model.number="draft.count" type="number" min="1" :max="maxGenerationCount" step="1" @change="normalizeGenerationCount" /></label>
           </div>
         </div>
