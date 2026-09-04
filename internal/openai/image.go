@@ -10,6 +10,7 @@ import (
 	"mime"
 	"mime/multipart"
 	"net/http"
+	"net/textproto"
 	"net/url"
 	"os"
 	"path/filepath"
@@ -111,7 +112,13 @@ func (c *Client) generateOpenAIImageEdit(ctx context.Context, request GenerateRe
 	}
 	_ = writer.WriteField("n", fmt.Sprint(request.Count))
 	_ = writer.WriteField("size", request.Size)
-	part, err := writer.CreateFormFile("image", filename)
+	imageHeader := make(textproto.MIMEHeader)
+	imageHeader.Set("Content-Disposition", mime.FormatMediaType("form-data", map[string]string{
+		"name":     "image",
+		"filename": filename,
+	}))
+	imageHeader.Set("Content-Type", http.DetectContentType(imageData))
+	part, err := writer.CreatePart(imageHeader)
 	if err != nil {
 		return MediaResult{}, err
 	}
