@@ -63,15 +63,14 @@ const selectedPolishModels = computed(() => draft.value.polishTargetIds.map((id)
 const maxGenerationCount = computed(() => Math.min(8, Math.max(1, Math.floor(24 / Math.max(1, selectedModels.value.length)))));
 const generationCount = computed(() => Math.min(maxGenerationCount.value, Math.max(1, Math.trunc(Number(draft.value.count) || 1))));
 const totalTaskCount = computed(() => selectedModels.value.length * generationCount.value);
-const imagePreview = computed(() => {
-  const image = draft.value.image;
-  if (!image) return "";
+const maxSourceImageCount = computed(() => capability.value === "image_to_image" ? 16 : 1);
+function imagePreview(image: ImageInput) {
   if (image.base64?.startsWith("data:")) return image.base64;
   if (image.base64) return `data:${image.mimeType || "image/png"};base64,${image.base64}`;
   return image.url || "";
-});
+}
 const hasProviders = computed(() => store.enabledProviders.length > 0);
-const canRun = computed(() => draft.value.prompt.trim() && selectedModels.value.length > 0 && generationCount.value >= 1 && (!config.value.source || Boolean(draft.value.image)));
+const canRun = computed(() => draft.value.prompt.trim() && selectedModels.value.length > 0 && generationCount.value >= 1 && (!config.value.source || draft.value.images.length > 0));
 const batchStats = computed(() => {
   const stats = { running: 0, succeeded: 0, failed: 0, canceled: 0 };
   resultTasks.value.forEach((task) => {
@@ -126,27 +125,46 @@ function togglePolishTarget(modelId: number) {
   else draft.value.polishTargetIds.push(modelId);
 }
 
-function useImage(file: File) {
+function readImage(file: File): Promise<ImageInput | null> {
   const supportedTypes = new Set(["image/png", "image/jpeg", "image/webp"]);
   if (!supportedTypes.has(file.type.toLowerCase())) {
-    store.toast("请选择图片文件", "error");
-    return;
+    store.toast(`${file.name} 不是受支持的图片`, "error");
+    return Promise.resolve(null);
   }
   if (file.size > 25 * 1024 * 1024) {
-    store.toast("图片不能超过 25 MB", "error");
-    return;
+    store.toast(`${file.name} 不能超过 25 MB`, "error");
+    return Promise.resolve(null);
   }
-  const reader = new FileReader();
-  reader.onload = () => {
-    draft.value.image = { name: file.name, mimeType: file.type, base64: String(reader.result) };
-  };
-  reader.onerror = () => store.toast("读取图片失败", "error");
-  reader.readAsDataURL(file);
+  return new Promise((resolve) => {
+    const reader = new FileReader();
+    reader.onload = () => resolve({ name: file.name, mimeType: file.type, base64: String(reader.result) });
+    reader.onerror = () => {
+      store.toast(`读取 ${file.name} 失败`, "error");
+      resolve(null);
+    };
+    reader.readAsDataURL(file);
+  });
 }
 
-function handleFiles(files: FileList | null) {
-  const file = files?.item(0);
-  if (file) useImage(file);
+function addSourceImages(images: ImageInput[]) {
+  if (!images.length) return;
+  if (maxSourceImageCount.value === 1) {
+    draft.value.images = [images[0]];
+    if (images.length > 1) store.toast("图生视频只使用第一张来源图片", "info");
+    return;
+  }
+  const available = maxSourceImageCount.value - draft.value.images.length;
+  if (available <= 0) {
+    store.toast(`图生图最多选择 ${maxSourceImageCount.value} 张来源图片`, "error");
+    return;
+  }
+  draft.value.images.push(...images.slice(0, available));
+  if (images.length > available) store.toast(`已达到 ${maxSourceImageCount.value} 张来源图片上限`, "info");
+}
+
+async function handleFiles(files: FileList | null) {
+  const images = await Promise.all(Array.from(files || []).map(readImage));
+  addSourceImages(images.filter((image): image is ImageInput => image !== null));
   if (fileInput.value) fileInput.value.value = "";
 }
 
@@ -157,14 +175,15 @@ function handleDrop(event: DragEvent) {
 function handlePaste(event: ClipboardEvent) {
   if (!config.value.source) return;
   const items = event.clipboardData ? Array.from(event.clipboardData.items) : [];
-  const item = items.find((candidate) => ["image/png", "image/jpeg", "image/webp"].includes(candidate.type.toLowerCase()));
-  const file = item?.getAsFile();
-  if (file) useImage(file);
+  const files = items
+    .filter((candidate) => ["image/png", "image/jpeg", "image/webp"].includes(candidate.type.toLowerCase()))
+    .map((item) => item.getAsFile())
+    .filter((file): file is File => file !== null);
+  if (files.length) void Promise.all(files.map(readImage)).then((images) => addSourceImages(images.filter((image): image is ImageInput => image !== null)));
 }
 
-async function chooseNativeImage() {
-  const image = await store.chooseSourceImage();
-  if (image) draft.value.image = image;
+async function chooseNativeImages() {
+  addSourceImages(await store.chooseSourceImages());
 }
 
 function normalizeGenerationCount() {
@@ -271,7 +290,7 @@ async function favoriteHistoryAsImage(item: GenerationHistory): Promise<ImageInp
 async function chooseFavoriteSource(item: GenerationHistory) {
   favoriteConvertingId.value = item.id;
   try {
-    draft.value.image = await favoriteHistoryAsImage(item);
+    addSourceImages([await favoriteHistoryAsImage(item)]);
     favoritePickerOpen.value = false;
     store.toast("已选择收藏素材", "success");
   } catch (error) {
@@ -303,7 +322,7 @@ async function runGeneration() {
       capability: capability.value,
       prompt: draft.value.prompt,
       negativePrompt: draft.value.negativePrompt,
-      images: draft.value.image ? [draft.value.image] : [],
+      images: draft.value.images,
       targets: selectedModels.value.map((model) => ({ providerId: model.providerId, modelId: model.id })),
       options: {
         size: draft.value.size,
@@ -341,9 +360,9 @@ let removeSourceImageListener: (() => void) | undefined;
 
 onMounted(async () => {
   window.addEventListener("paste", handlePaste);
-  removeSourceImageListener = await bridge.subscribeSourceImage(
-    (image) => {
-      if (config.value.source) draft.value.image = image;
+  removeSourceImageListener = await bridge.subscribeSourceImages(
+    (images) => {
+      if (config.value.source) addSourceImages(images);
     },
     (message) => store.toast(message, "error"),
   );
@@ -369,31 +388,33 @@ onBeforeUnmount(() => {
         </div>
 
         <div v-if="config.source" class="flow-step">
-          <div class="step-heading"><span>02</span><div><strong>来源图片</strong><small>PNG / JPEG / WebP</small></div></div>
+          <div class="step-heading"><span>02</span><div><strong>来源图片</strong><small>PNG / JPEG / WebP · {{ draft.images.length }}/{{ maxSourceImageCount }}</small></div></div>
+          <div v-if="draft.images.length" class="source-preview-list">
+            <div v-for="(image, index) in draft.images" :key="`${image.name || 'image'}-${index}`" class="source-preview">
+              <img :src="imagePreview(image)" :alt="image.name || `来源图片 ${index + 1}`" />
+              <div><strong>{{ image.name || `来源图片 ${index + 1}` }}</strong><small>{{ image.mimeType }}</small></div>
+              <button class="icon-button" type="button" title="移除图片" @click="draft.images.splice(index, 1)"><X :size="17" /></button>
+            </div>
+          </div>
           <div
-            v-if="!draft.image"
+            v-if="draft.images.length < maxSourceImageCount"
             id="source-image-drop"
             class="image-drop-zone"
+            :class="{ compact: draft.images.length > 0 }"
             data-file-drop-target
             aria-label="来源图片拖放区域"
             @dragover.prevent
             @drop.prevent="handleDrop"
           >
             <Upload :size="22" />
-            <strong>拖入或粘贴图片</strong>
+            <strong>{{ draft.images.length ? '继续添加图片' : '拖入或粘贴图片' }}</strong>
             <div class="drop-actions">
               <button class="button secondary compact" type="button" @click="fileInput?.click()"><Paperclip :size="15" />选择文件</button>
-              <button class="button ghost compact" type="button" @click="chooseNativeImage"><FileImage :size="15" />系统对话框</button>
+              <button class="button ghost compact" type="button" @click="chooseNativeImages"><FileImage :size="15" />系统对话框</button>
               <button class="button ghost compact" type="button" @click="openFavoritePicker"><Bookmark :size="15" />收藏素材</button>
             </div>
           </div>
-          <div v-else class="source-preview">
-            <img :src="imagePreview" :alt="draft.image.name || '来源图片'" />
-            <div><strong>{{ draft.image.name || '已选择图片' }}</strong><small>{{ draft.image.mimeType }}</small></div>
-            <button class="icon-button" type="button" title="从收藏替换" @click="openFavoritePicker"><Bookmark :size="16" /></button>
-            <button class="icon-button" type="button" title="移除图片" @click="draft.image = null"><X :size="17" /></button>
-          </div>
-          <input ref="fileInput" class="visually-hidden" type="file" accept="image/png,image/jpeg,image/webp" @change="handleFiles(($event.target as HTMLInputElement).files)" />
+          <input ref="fileInput" class="visually-hidden" type="file" accept="image/png,image/jpeg,image/webp" :multiple="maxSourceImageCount > 1" @change="handleFiles(($event.target as HTMLInputElement).files)" />
         </div>
 
         <div class="flow-step polish-step">

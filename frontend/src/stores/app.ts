@@ -22,7 +22,7 @@ function createDraft(capability: Capability): WorkspaceDraft {
   return {
     prompt: "",
     negativePrompt: "",
-    image: null,
+    images: [],
     targetIds: [],
     polishTargetIds: [],
     templateId: 0,
@@ -193,20 +193,20 @@ export const useAppStore = defineStore("app", {
       }
     },
 
-    async chooseSourceImage(): Promise<ImageInput | null> {
+    async chooseSourceImages(): Promise<ImageInput[]> {
       try {
-        const image = await bridge.chooseSourceImage();
-        return image.base64 || image.url ? image : null;
+        const images = await bridge.chooseSourceImages();
+        return images.filter((image) => image.base64 || image.url);
       } catch (error) {
         this.toast(errorText(error), "error");
-        return null;
+        return [];
       }
     },
 
-    async saveProvider(id: number | null, input: { name: string; baseUrl: string; apiKey: string; enabled: boolean }) {
+    async saveProvider(id: number | null, input: { name: string; baseUrl: string; proxyUrl: string; apiKey: string; enabled: boolean }) {
       try {
         const provider = id
-          ? await bridge.updateProvider(id, { name: input.name, baseUrl: input.baseUrl, enabled: input.enabled, ...(input.apiKey ? { apiKey: input.apiKey } : {}) })
+          ? await bridge.updateProvider(id, { name: input.name, baseUrl: input.baseUrl, proxyUrl: input.proxyUrl, enabled: input.enabled, ...(input.apiKey ? { apiKey: input.apiKey } : {}) })
           : await bridge.createProvider(input);
         const index = this.providers.findIndex((item) => item.id === provider.id);
         if (index >= 0) this.providers[index] = provider;

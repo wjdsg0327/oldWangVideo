@@ -18,7 +18,7 @@ var assets embed.FS
 
 func init() {
 	application.RegisterEvent[domain.TaskSnapshot]("task:update")
-	application.RegisterEvent[domain.ImageInput]("source-image:dropped")
+	application.RegisterEvent[[]domain.ImageInput]("source-image:dropped")
 	application.RegisterEvent[string]("source-image:drop-error")
 }
 
@@ -68,14 +68,23 @@ func main() {
 		if len(files) == 0 {
 			return
 		}
-		path := files[0]
 		go func() {
-			image, err := readImageInput(path)
-			if err != nil {
-				app.Event.Emit("source-image:drop-error", err.Error())
-				return
+			if len(files) > maxSourceImageCount {
+				app.Event.Emit("source-image:drop-error", "一次最多拖入 16 张来源图片")
+				files = files[:maxSourceImageCount]
 			}
-			app.Event.Emit("source-image:dropped", image)
+			images := make([]domain.ImageInput, 0, len(files))
+			for _, path := range files {
+				image, err := readImageInput(path)
+				if err != nil {
+					app.Event.Emit("source-image:drop-error", filepath.Base(path)+"："+err.Error())
+					continue
+				}
+				images = append(images, image)
+			}
+			if len(images) > 0 {
+				app.Event.Emit("source-image:dropped", images)
+			}
 		}()
 	})
 	if err := app.Run(); err != nil {

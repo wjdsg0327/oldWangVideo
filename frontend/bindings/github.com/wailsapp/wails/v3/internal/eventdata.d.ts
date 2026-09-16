@@ -13,7 +13,7 @@ declare module "@wailsio/runtime" {
     namespace Events {
         interface CustomEvents {
             "source-image:drop-error": string;
-            "source-image:dropped": domain$0.ImageInput;
+            "source-image:dropped": domain$0.ImageInput[];
             "task:update": domain$0.TaskSnapshot;
         }
     }

@@ -87,6 +87,12 @@ var migrations = []migration{
 			CREATE INDEX idx_favorites_created ON favorites(created_at DESC);
 		`,
 	},
+	{
+		version: 2,
+		sql: `
+			ALTER TABLE providers ADD COLUMN proxy_url TEXT NOT NULL DEFAULT '';
+		`,
+	},
 }
 
 func (s *Store) migrate(ctx context.Context) error {

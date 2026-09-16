@@ -24,27 +24,27 @@ export function CancelTask(taskID: string): $CancellablePromise<boolean> {
     return $Call.ByID(1512813232, taskID);
 }
 
-export function ChooseSourceImage(): $CancellablePromise<domain$0.ImageInput> {
+export function ChooseSourceImage(): $CancellablePromise<domain$0.ImageInput[]> {
     return $Call.ByID(4230303284).then(($result: any) => {
-        return $$createType0($result);
+        return $$createType1($result);
     });
 }
 
 export function CreateModel(input: domain$0.ModelCreateInput): $CancellablePromise<domain$0.Model> {
     return $Call.ByID(2769979660, input).then(($result: any) => {
-        return $$createType1($result);
+        return $$createType2($result);
     });
 }
 
 export function CreatePromptTemplate(input: domain$0.PromptTemplateInput): $CancellablePromise<domain$0.PromptTemplate> {
     return $Call.ByID(2814361387, input).then(($result: any) => {
-        return $$createType2($result);
+        return $$createType3($result);
     });
 }
 
 export function CreateProvider(input: domain$0.ProviderCreateInput): $CancellablePromise<domain$0.Provider> {
     return $Call.ByID(2737819934, input).then(($result: any) => {
-        return $$createType3($result);
+        return $$createType4($result);
     });
 }
 
@@ -74,25 +74,25 @@ export function DownloadTaskResult(taskID: string): $CancellablePromise<string> 
 
 export function GetBootstrapState(): $CancellablePromise<$models.BootstrapState> {
     return $Call.ByID(2299588814).then(($result: any) => {
-        return $$createType4($result);
+        return $$createType5($result);
     });
 }
 
 export function ListHistory(filter: domain$0.HistoryFilter): $CancellablePromise<domain$0.HistoryPage> {
     return $Call.ByID(648025105, filter).then(($result: any) => {
-        return $$createType5($result);
+        return $$createType6($result);
     });
 }
 
 export function RefreshProviderModels(id: number): $CancellablePromise<domain$0.Model[]> {
     return $Call.ByID(1372349461, id).then(($result: any) => {
-        return $$createType6($result);
+        return $$createType7($result);
     });
 }
 
 export function RetryTask(taskID: string): $CancellablePromise<domain$0.BatchStart> {
     return $Call.ByID(2689179438, taskID).then(($result: any) => {
-        return $$createType7($result);
+        return $$createType8($result);
     });
 }
 
@@ -110,47 +110,48 @@ export function SetProviderEnabled(id: number, enabled: boolean): $CancellablePr
 
 export function StartGeneration(request: domain$0.GenerationRequest): $CancellablePromise<domain$0.BatchStart> {
     return $Call.ByID(3088371743, request).then(($result: any) => {
-        return $$createType7($result);
+        return $$createType8($result);
     });
 }
 
 export function StartPolish(request: domain$0.PromptPolishRequest): $CancellablePromise<domain$0.BatchStart> {
     return $Call.ByID(3623183924, request).then(($result: any) => {
-        return $$createType7($result);
+        return $$createType8($result);
     });
 }
 
 export function TestProvider(id: number): $CancellablePromise<openai$0.ConnectivityResult> {
     return $Call.ByID(820040770, id).then(($result: any) => {
-        return $$createType8($result);
+        return $$createType9($result);
     });
 }
 
 export function UpdateModel(id: number, input: domain$0.ModelUpdateInput): $CancellablePromise<domain$0.Model> {
     return $Call.ByID(754276259, id, input).then(($result: any) => {
-        return $$createType1($result);
+        return $$createType2($result);
     });
 }
 
 export function UpdatePromptTemplate(id: number, input: domain$0.PromptTemplateInput): $CancellablePromise<domain$0.PromptTemplate> {
     return $Call.ByID(1596188038, id, input).then(($result: any) => {
-        return $$createType2($result);
+        return $$createType3($result);
     });
 }
 
 export function UpdateProvider(id: number, input: domain$0.ProviderUpdateInput): $CancellablePromise<domain$0.Provider> {
     return $Call.ByID(1329978771, id, input).then(($result: any) => {
-        return $$createType3($result);
+        return $$createType4($result);
     });
 }
 
 // Private type creation functions
 const $$createType0 = domain$0.ImageInput.createFrom;
-const $$createType1 = domain$0.Model.createFrom;
-const $$createType2 = domain$0.PromptTemplate.createFrom;
-const $$createType3 = domain$0.Provider.createFrom;
-const $$createType4 = $models.BootstrapState.createFrom;
-const $$createType5 = domain$0.HistoryPage.createFrom;
-const $$createType6 = $Create.Array($$createType1);
-const $$createType7 = domain$0.BatchStart.createFrom;
-const $$createType8 = openai$0.ConnectivityResult.createFrom;
+const $$createType1 = $Create.Array($$createType0);
+const $$createType2 = domain$0.Model.createFrom;
+const $$createType3 = domain$0.PromptTemplate.createFrom;
+const $$createType4 = domain$0.Provider.createFrom;
+const $$createType5 = $models.BootstrapState.createFrom;
+const $$createType6 = domain$0.HistoryPage.createFrom;
+const $$createType7 = $Create.Array($$createType2);
+const $$createType8 = domain$0.BatchStart.createFrom;
+const $$createType9 = openai$0.ConnectivityResult.createFrom;

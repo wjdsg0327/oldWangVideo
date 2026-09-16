@@ -55,8 +55,8 @@ const now = () => new Date().toISOString();
 const mockState: BootstrapState = {
   data: {
     providers: [
-      { id: 1, name: "硅基流动", baseUrl: "https://api.siliconflow.cn/v1", hasApiKey: true, enabled: true, createdAt: now(), updatedAt: now() },
-      { id: 2, name: "本地工作站", baseUrl: "http://127.0.0.1:8000/v1", hasApiKey: false, enabled: true, createdAt: now(), updatedAt: now() },
+      { id: 1, name: "硅基流动", baseUrl: "https://api.siliconflow.cn/v1", proxyUrl: "", hasApiKey: true, enabled: true, createdAt: now(), updatedAt: now() },
+      { id: 2, name: "本地工作站", baseUrl: "http://127.0.0.1:8000/v1", proxyUrl: "", hasApiKey: false, enabled: true, createdAt: now(), updatedAt: now() },
     ],
     models: [
       { id: 1, providerId: 1, providerName: "硅基流动", remoteId: "black-forest-labs/FLUX.1-dev", name: "FLUX.1 Dev", capabilities: ["text_to_image", "image_to_image"], manual: false, enabled: true, createdAt: now(), updatedAt: now() },
@@ -203,10 +203,10 @@ export const bridge = {
     return Events.On("task:update", (event) => listener(event.data as TaskSnapshot));
   },
 
-  async subscribeSourceImage(listener: (image: ImageInput) => void, onError: (message: string) => void): Promise<() => void> {
+  async subscribeSourceImages(listener: (images: ImageInput[]) => void, onError: (message: string) => void): Promise<() => void> {
     if (!desktopRuntime) return () => undefined;
     const { Events } = await import("@wailsio/runtime");
-    const removeImage = Events.On("source-image:dropped", (event) => listener(event.data as ImageInput));
+    const removeImage = Events.On("source-image:dropped", (event) => listener(event.data as ImageInput[]));
     const removeError = Events.On("source-image:drop-error", (event) => onError(String(event.data || "读取来源图片失败")));
     return () => {
       removeImage();
@@ -256,25 +256,25 @@ export const bridge = {
     return mockBatch(saved.kind, request);
   },
 
-  async chooseSourceImage(): Promise<ImageInput> {
-    return desktopRuntime ? await StudioService.ChooseSourceImage() as ImageInput : {};
+  async chooseSourceImages(): Promise<ImageInput[]> {
+    return desktopRuntime ? await StudioService.ChooseSourceImage() as ImageInput[] : [];
   },
 
   async downloadTask(taskId: string) {
     return desktopRuntime ? StudioService.DownloadTaskResult(taskId) : "浏览器演示模式不写入文件";
   },
 
-  async createProvider(input: { name: string; baseUrl: string; apiKey: string; enabled: boolean }): Promise<Provider> {
+  async createProvider(input: { name: string; baseUrl: string; proxyUrl: string; apiKey: string; enabled: boolean }): Promise<Provider> {
     if (desktopRuntime) return await StudioService.CreateProvider(input) as Provider;
-    const item: Provider = { id: mockProviderSequence++, name: input.name, baseUrl: input.baseUrl, hasApiKey: Boolean(input.apiKey), enabled: input.enabled, createdAt: now(), updatedAt: now() };
+    const item: Provider = { id: mockProviderSequence++, name: input.name, baseUrl: input.baseUrl, proxyUrl: input.proxyUrl, hasApiKey: Boolean(input.apiKey), enabled: input.enabled, createdAt: now(), updatedAt: now() };
     mockState.data.providers.push(item);
     return clone(item);
   },
 
-  async updateProvider(id: number, input: { name: string; baseUrl: string; apiKey?: string; enabled: boolean }): Promise<Provider> {
+  async updateProvider(id: number, input: { name: string; baseUrl: string; proxyUrl: string; apiKey?: string; enabled: boolean }): Promise<Provider> {
     if (desktopRuntime) return await StudioService.UpdateProvider(id, input as never) as Provider;
     const item = mockState.data.providers.find((provider) => provider.id === id)!;
-    Object.assign(item, { name: input.name, baseUrl: input.baseUrl, enabled: input.enabled, hasApiKey: input.apiKey ? true : item.hasApiKey, updatedAt: now() });
+    Object.assign(item, { name: input.name, baseUrl: input.baseUrl, proxyUrl: input.proxyUrl, enabled: input.enabled, hasApiKey: input.apiKey ? true : item.hasApiKey, updatedAt: now() });
     return clone(item);
   },
 

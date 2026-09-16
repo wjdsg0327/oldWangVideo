@@ -485,6 +485,11 @@ code,
   transition: background 140ms ease, border-color 140ms ease;
 }
 
+.image-drop-zone.compact {
+  min-height: 104px;
+  margin-top: 8px;
+}
+
 .image-drop-zone.file-drop-target-active,
 .image-drop-zone:hover {
   color: var(--action);
@@ -504,9 +509,14 @@ code,
   margin-top: 4px;
 }
 
+.source-preview-list {
+  display: grid;
+  gap: 8px;
+}
+
 .source-preview {
   display: grid;
-  grid-template-columns: 74px minmax(0, 1fr) 32px 32px;
+  grid-template-columns: 74px minmax(0, 1fr) 32px;
   align-items: center;
   gap: 10px;
   min-height: 74px;
@@ -1669,6 +1679,14 @@ code,
 
 .field textarea {
   min-height: 160px;
+}
+
+.field-hint {
+  display: block;
+  margin-top: 6px;
+  color: var(--muted);
+  font-size: 10px;
+  line-height: 1.5;
 }
 
 .input-with-action,

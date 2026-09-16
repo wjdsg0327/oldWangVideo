@@ -12,13 +12,14 @@ import * as domain$0 from "../../../../../oldwangvideo/internal/domain/models.js
 
 function configure() {
     Object.freeze(Object.assign($Create.Events, {
-        "source-image:dropped": $$createType0,
-        "task:update": $$createType1,
+        "source-image:dropped": $$createType1,
+        "task:update": $$createType2,
     }));
 }
 
 // Private type creation functions
 const $$createType0 = domain$0.ImageInput.createFrom;
-const $$createType1 = domain$0.TaskSnapshot.createFrom;
+const $$createType1 = $Create.Array($$createType0);
+const $$createType2 = domain$0.TaskSnapshot.createFrom;
 
 configure();

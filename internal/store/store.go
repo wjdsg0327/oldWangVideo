@@ -121,7 +121,7 @@ func (s *Store) UseProviderCredentials(ctx context.Context, providerID int64, us
 		return fmt.Errorf("%w: 凭据回调不能为空", ErrInvalidInput)
 	}
 	row := s.db.QueryRowContext(ctx, `
-		SELECT id, name, base_url, api_key_ciphertext, enabled, created_at, updated_at
+		SELECT id, name, base_url, proxy_url, api_key_ciphertext, enabled, created_at, updated_at
 		FROM providers
 		WHERE id = ?`, providerID)
 	provider, ciphertext, err := scanProviderWithCiphertext(row)

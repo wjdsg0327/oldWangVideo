@@ -38,6 +38,7 @@ type GenerateRequest struct {
 	NegativePrompt  string     `json:"negativePrompt"`
 	SourceImagePath string     `json:"sourceImagePath"`
 	SourceImageData string     `json:"sourceImageData"`
+	SourceImages    []string   `json:"sourceImages,omitempty"`
 	Size            string     `json:"size"`
 	Seconds         int        `json:"seconds"`
 	Count           int        `json:"count"`

@@ -23,6 +23,11 @@ type Client struct {
 }
 
 func NewClient(baseURL, apiKey string, timeout time.Duration) (*Client, error) {
+	return NewClientWithProxy(baseURL, apiKey, "", timeout)
+}
+
+// NewClientWithProxy 创建可选经指定代理访问供应商的客户端。
+func NewClientWithProxy(baseURL, apiKey, proxyURL string, timeout time.Duration) (*Client, error) {
 	normalized := strings.TrimSpace(baseURL)
 	parsed, err := url.Parse(normalized)
 	if err != nil || parsed.Scheme == "" || parsed.Host == "" {
@@ -37,12 +42,43 @@ func NewClient(baseURL, apiKey string, timeout time.Duration) (*Client, error) {
 	if timeout <= 0 {
 		timeout = defaultRequestTimeout
 	}
+	httpClient, err := newHTTPClient(proxyURL, timeout)
+	if err != nil {
+		return nil, err
+	}
 	return &Client{
 		baseURL: parsed,
 		apiKey:  strings.TrimSpace(apiKey),
 		profile: DetectProfile(parsed),
-		http:    &http.Client{Timeout: timeout},
+		http:    httpClient,
 	}, nil
+}
+
+func newHTTPClient(proxyURL string, timeout time.Duration) (*http.Client, error) {
+	transport := http.DefaultTransport.(*http.Transport).Clone()
+	proxyURL = strings.TrimSpace(proxyURL)
+	if proxyURL == "" {
+		return &http.Client{Transport: transport, Timeout: timeout}, nil
+	}
+	if !strings.Contains(proxyURL, "://") {
+		proxyURL = "http://" + proxyURL
+	}
+	parsed, err := url.Parse(proxyURL)
+	if err != nil || parsed.Host == "" {
+		return nil, &APIError{Code: "invalid_proxy_url", Message: "代理地址无效"}
+	}
+	parsed.Scheme = strings.ToLower(parsed.Scheme)
+	switch parsed.Scheme {
+	case "http", "https", "socks5", "socks5h":
+	default:
+		return nil, &APIError{Code: "invalid_proxy_url", Message: "代理仅支持 http、https、socks5 或 socks5h"}
+	}
+	if parsed.RawQuery != "" || parsed.Fragment != "" || (parsed.Path != "" && parsed.Path != "/") {
+		return nil, &APIError{Code: "invalid_proxy_url", Message: "代理地址不能包含路径、查询参数或片段"}
+	}
+	parsed.Path = ""
+	transport.Proxy = http.ProxyURL(parsed)
+	return &http.Client{Transport: transport, Timeout: timeout}, nil
 }
 
 func DetectProfile(baseURL *url.URL) ProtocolProfile {

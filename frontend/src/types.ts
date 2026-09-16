@@ -12,6 +12,7 @@ export interface Provider {
   id: number;
   name: string;
   baseUrl: string;
+  proxyUrl?: string;
   hasApiKey: boolean;
   enabled: boolean;
   createdAt: string;
@@ -182,7 +183,7 @@ export interface BootstrapState {
 export interface WorkspaceDraft {
   prompt: string;
   negativePrompt: string;
-  image: ImageInput | null;
+  images: ImageInput[];
   targetIds: number[];
   polishTargetIds: number[];
   templateId: number;

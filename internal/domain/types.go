@@ -48,6 +48,7 @@ type Provider struct {
 	ID        int64     `json:"id"`
 	Name      string    `json:"name"`
 	BaseURL   string    `json:"baseUrl"`
+	ProxyURL  string    `json:"proxyUrl,omitempty"`
 	HasAPIKey bool      `json:"hasApiKey"`
 	Enabled   bool      `json:"enabled"`
 	CreatedAt time.Time `json:"createdAt"`
@@ -56,18 +57,20 @@ type Provider struct {
 
 // ProviderCreateInput 是新增供应商的输入。
 type ProviderCreateInput struct {
-	Name    string `json:"name"`
-	BaseURL string `json:"baseUrl"`
-	APIKey  string `json:"apiKey"`
-	Enabled bool   `json:"enabled"`
+	Name     string `json:"name"`
+	BaseURL  string `json:"baseUrl"`
+	ProxyURL string `json:"proxyUrl,omitempty"`
+	APIKey   string `json:"apiKey"`
+	Enabled  bool   `json:"enabled"`
 }
 
 // ProviderUpdateInput 是更新供应商的输入，APIKey 为 nil 时保留原值。
 type ProviderUpdateInput struct {
-	Name    string  `json:"name"`
-	BaseURL string  `json:"baseUrl"`
-	APIKey  *string `json:"apiKey,omitempty"`
-	Enabled bool    `json:"enabled"`
+	Name     string  `json:"name"`
+	BaseURL  string  `json:"baseUrl"`
+	ProxyURL string  `json:"proxyUrl,omitempty"`
+	APIKey   *string `json:"apiKey,omitempty"`
+	Enabled  bool    `json:"enabled"`
 }
 
 // ProviderPreset 是一键填充供应商地址的内置预设。

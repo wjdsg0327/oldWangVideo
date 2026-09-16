@@ -24,6 +24,7 @@ import (
 const (
 	defaultPolishPrompt    = "你是一名专业的视觉创作提示词编辑。保留用户意图，补充主体、环境、构图、光线、材质、镜头与风格细节，只输出可直接用于生成模型的提示词。"
 	maxSourceImageBytes    = 25 << 20
+	maxSourceImageCount    = 16
 	maxConcurrentTasks     = 8
 	maxRetainedTaskBatches = 8
 	maxGenerationCount     = 8
@@ -123,7 +124,7 @@ func (m *Manager) StartGeneration(request domain.GenerationRequest) (domain.Batc
 	}
 	request.Options.Count = count
 	if (request.Capability == domain.CapabilityImageToImage || request.Capability == domain.CapabilityImageToVideo) && len(request.Images) == 0 {
-		return domain.BatchStart{}, fmt.Errorf("当前模块需要一张来源图片")
+		return domain.BatchStart{}, fmt.Errorf("当前模块需要来源图片")
 	}
 	if err := validateGenerationImages(request); err != nil {
 		return domain.BatchStart{}, err
@@ -421,7 +422,7 @@ func (m *Manager) runGeneration(ctx context.Context, taskID string, target valid
 	var client *openaiapi.Client
 	err := m.store.UseProviderCredentials(ctx, target.provider.ID, func(provider domain.Provider, apiKey string) error {
 		var createErr error
-		client, createErr = openaiapi.NewClient(provider.BaseURL, apiKey, generationTimeout(request))
+		client, createErr = openaiapi.NewClientWithProxy(provider.BaseURL, apiKey, provider.ProxyURL, generationTimeout(request))
 		if createErr != nil {
 			return createErr
 		}
@@ -473,7 +474,7 @@ func (m *Manager) runPolish(ctx context.Context, taskID string, target validated
 	}
 	var text string
 	err := m.store.UseProviderCredentials(ctx, target.provider.ID, func(provider domain.Provider, apiKey string) error {
-		client, err := openaiapi.NewClient(provider.BaseURL, apiKey, 5*time.Minute)
+		client, err := openaiapi.NewClientWithProxy(provider.BaseURL, apiKey, provider.ProxyURL, 5*time.Minute)
 		if err != nil {
 			return err
 		}
@@ -550,12 +551,23 @@ func validateGenerationImages(request domain.GenerationRequest) error {
 	if request.Capability != domain.CapabilityImageToImage && request.Capability != domain.CapabilityImageToVideo {
 		return nil
 	}
-	if len(request.Images) != 1 {
-		return fmt.Errorf("当前模块只支持一张来源图片")
+	if request.Capability == domain.CapabilityImageToVideo && len(request.Images) != 1 {
+		return fmt.Errorf("图生视频只支持一张来源图片")
 	}
-	image := request.Images[0]
+	if request.Capability == domain.CapabilityImageToImage && (len(request.Images) == 0 || len(request.Images) > maxSourceImageCount) {
+		return fmt.Errorf("图生图需要 1 到 %d 张来源图片", maxSourceImageCount)
+	}
+	for index, image := range request.Images {
+		if err := validateGenerationImage(image); err != nil {
+			return fmt.Errorf("第 %d 张来源图片：%w", index+1, err)
+		}
+	}
+	return nil
+}
+
+func validateGenerationImage(image domain.ImageInput) error {
 	if strings.TrimSpace(image.Base64) == "" && strings.TrimSpace(image.URL) == "" {
-		return fmt.Errorf("来源图片内容为空")
+		return fmt.Errorf("内容为空")
 	}
 	if image.Base64 != "" {
 		encoded := strings.TrimSpace(image.Base64)
@@ -563,7 +575,7 @@ func validateGenerationImages(request domain.GenerationRequest) error {
 		if strings.HasPrefix(encoded, "data:") {
 			comma := strings.IndexByte(encoded, ',')
 			if comma < 0 {
-				return fmt.Errorf("来源图片数据格式无效")
+				return fmt.Errorf("数据格式无效")
 			}
 			header := encoded[:comma]
 			encoded = encoded[comma+1:]
@@ -577,7 +589,7 @@ func validateGenerationImages(request domain.GenerationRequest) error {
 			data, err = base64.RawStdEncoding.DecodeString(encoded)
 		}
 		if err != nil {
-			return fmt.Errorf("来源图片编码无效")
+			return fmt.Errorf("编码无效")
 		}
 		if len(data) == 0 || len(data) > maxSourceImageBytes {
 			return fmt.Errorf("图片不能超过 25 MB")
@@ -586,7 +598,7 @@ func validateGenerationImages(request domain.GenerationRequest) error {
 	}
 	parsed, err := url.Parse(strings.TrimSpace(image.URL))
 	if err != nil || parsed.Host == "" || (parsed.Scheme != "http" && parsed.Scheme != "https") {
-		return fmt.Errorf("来源图片 URL 必须是 http 或 https 地址")
+		return fmt.Errorf("URL 必须是 http 或 https 地址")
 	}
 	if image.MIMEType != "" && !supportedImageMIME(strings.ToLower(strings.TrimSpace(image.MIMEType))) {
 		return fmt.Errorf("仅支持 PNG、JPEG 或 WebP 图片")
@@ -628,19 +640,23 @@ func mapGenerateRequest(request domain.GenerationRequest, model string) openaiap
 		Seconds:        request.Options.DurationSeconds,
 		Count:          request.Options.Count,
 	}
-	if len(request.Images) > 0 {
-		image := request.Images[0]
-		mapped.SourceImageData = image.Base64
-		if mapped.SourceImageData != "" && !strings.HasPrefix(mapped.SourceImageData, "data:") {
+	for _, image := range request.Images {
+		data := image.Base64
+		if data != "" && !strings.HasPrefix(data, "data:") {
 			mimeType := image.MIMEType
 			if mimeType == "" {
 				mimeType = "image/png"
 			}
-			mapped.SourceImageData = "data:" + mimeType + ";base64," + mapped.SourceImageData
+			data = "data:" + mimeType + ";base64," + data
 		}
-		if mapped.SourceImageData == "" {
-			mapped.SourceImageData = image.URL
+		if data == "" {
+			data = image.URL
 		}
+		mapped.SourceImages = append(mapped.SourceImages, data)
+	}
+	if len(mapped.SourceImages) > 0 {
+		// 保留单图字段，兼容现有图生视频适配器。
+		mapped.SourceImageData = mapped.SourceImages[0]
 	}
 	return mapped
 }

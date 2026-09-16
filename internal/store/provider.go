@@ -12,7 +12,7 @@ import (
 
 // CreateProvider 加密 API Key 后新增供应商。
 func (s *Store) CreateProvider(ctx context.Context, input domain.ProviderCreateInput) (domain.Provider, error) {
-	name, baseURL, err := validateProvider(input.Name, input.BaseURL)
+	name, baseURL, proxyURL, err := validateProvider(input.Name, input.BaseURL, input.ProxyURL)
 	if err != nil {
 		return domain.Provider{}, err
 	}
@@ -25,8 +25,8 @@ func (s *Store) CreateProvider(ctx context.Context, input domain.ProviderCreateI
 	}
 	now := nowText()
 	result, err := s.db.ExecContext(ctx, `
-		INSERT INTO providers(name, base_url, api_key_ciphertext, enabled, created_at, updated_at)
-		VALUES(?, ?, ?, ?, ?, ?)`, name, baseURL, ciphertext, boolInt(input.Enabled), now, now)
+		INSERT INTO providers(name, base_url, proxy_url, api_key_ciphertext, enabled, created_at, updated_at)
+		VALUES(?, ?, ?, ?, ?, ?, ?)`, name, baseURL, proxyURL, ciphertext, boolInt(input.Enabled), now, now)
 	if err != nil {
 		return domain.Provider{}, mapDatabaseError(err)
 	}
@@ -39,7 +39,7 @@ func (s *Store) CreateProvider(ctx context.Context, input domain.ProviderCreateI
 
 // UpdateProvider 更新供应商，API Key 未传入时不会改写密文。
 func (s *Store) UpdateProvider(ctx context.Context, id int64, input domain.ProviderUpdateInput) (domain.Provider, error) {
-	name, baseURL, err := validateProvider(input.Name, input.BaseURL)
+	name, baseURL, proxyURL, err := validateProvider(input.Name, input.BaseURL, input.ProxyURL)
 	if err != nil {
 		return domain.Provider{}, err
 	}
@@ -58,8 +58,8 @@ func (s *Store) UpdateProvider(ctx context.Context, id int64, input domain.Provi
 	if input.APIKey == nil {
 		result, err = s.db.ExecContext(ctx, `
 			UPDATE providers
-			SET name = ?, base_url = ?, enabled = ?, updated_at = ?
-			WHERE id = ?`, name, baseURL, boolInt(input.Enabled), nowText(), id)
+			SET name = ?, base_url = ?, proxy_url = ?, enabled = ?, updated_at = ?
+			WHERE id = ?`, name, baseURL, proxyURL, boolInt(input.Enabled), nowText(), id)
 	} else {
 		ciphertext, encryptErr := s.vault.Encrypt(strings.TrimSpace(*input.APIKey))
 		if encryptErr != nil {
@@ -67,8 +67,8 @@ func (s *Store) UpdateProvider(ctx context.Context, id int64, input domain.Provi
 		}
 		result, err = s.db.ExecContext(ctx, `
 			UPDATE providers
-			SET name = ?, base_url = ?, api_key_ciphertext = ?, enabled = ?, updated_at = ?
-			WHERE id = ?`, name, baseURL, ciphertext, boolInt(input.Enabled), nowText(), id)
+			SET name = ?, base_url = ?, proxy_url = ?, api_key_ciphertext = ?, enabled = ?, updated_at = ?
+			WHERE id = ?`, name, baseURL, proxyURL, ciphertext, boolInt(input.Enabled), nowText(), id)
 	}
 	if err != nil {
 		return domain.Provider{}, mapDatabaseError(err)
@@ -91,7 +91,7 @@ func (s *Store) SetProviderEnabled(ctx context.Context, id int64, enabled bool) 
 // GetProvider 按编号读取不含完整密钥的供应商。
 func (s *Store) GetProvider(ctx context.Context, id int64) (domain.Provider, error) {
 	row := s.db.QueryRowContext(ctx, `
-		SELECT id, name, base_url, api_key_ciphertext, enabled, created_at, updated_at
+		SELECT id, name, base_url, proxy_url, api_key_ciphertext, enabled, created_at, updated_at
 		FROM providers
 		WHERE id = ?`, id)
 	provider, _, err := scanProviderWithCiphertext(row)
@@ -101,7 +101,7 @@ func (s *Store) GetProvider(ctx context.Context, id int64) (domain.Provider, err
 // ListProviders 按名称返回供应商列表。
 func (s *Store) ListProviders(ctx context.Context, includeDisabled bool) ([]domain.Provider, error) {
 	query := `
-		SELECT id, name, base_url, api_key_ciphertext, enabled, created_at, updated_at
+		SELECT id, name, base_url, proxy_url, api_key_ciphertext, enabled, created_at, updated_at
 		FROM providers`
 	if !includeDisabled {
 		query += " WHERE enabled = 1"
@@ -136,17 +136,46 @@ func (s *Store) DeleteProvider(ctx context.Context, id int64) error {
 	return requireAffected(result)
 }
 
-func validateProvider(name, baseURL string) (string, string, error) {
+func validateProvider(name, baseURL, proxyURL string) (string, string, string, error) {
 	name = strings.TrimSpace(name)
 	baseURL = strings.TrimRight(strings.TrimSpace(baseURL), "/")
 	if name == "" {
-		return "", "", fmt.Errorf("%w: 供应商名称不能为空", ErrInvalidInput)
+		return "", "", "", fmt.Errorf("%w: 供应商名称不能为空", ErrInvalidInput)
 	}
 	parsed, err := url.Parse(baseURL)
 	if err != nil || parsed.Host == "" || (parsed.Scheme != "http" && parsed.Scheme != "https") {
-		return "", "", fmt.Errorf("%w: Base URL 必须是 http 或 https 地址", ErrInvalidInput)
+		return "", "", "", fmt.Errorf("%w: Base URL 必须是 http 或 https 地址", ErrInvalidInput)
 	}
-	return name, baseURL, nil
+	proxyURL, err = normalizeProxyURL(proxyURL)
+	if err != nil {
+		return "", "", "", err
+	}
+	return name, baseURL, proxyURL, nil
+}
+
+func normalizeProxyURL(value string) (string, error) {
+	value = strings.TrimSpace(value)
+	if value == "" {
+		return "", nil
+	}
+	if !strings.Contains(value, "://") {
+		value = "http://" + value
+	}
+	parsed, err := url.Parse(value)
+	if err != nil || parsed.Host == "" {
+		return "", fmt.Errorf("%w: 代理地址无效", ErrInvalidInput)
+	}
+	parsed.Scheme = strings.ToLower(parsed.Scheme)
+	switch parsed.Scheme {
+	case "http", "https", "socks5", "socks5h":
+	default:
+		return "", fmt.Errorf("%w: 代理仅支持 http、https、socks5 或 socks5h", ErrInvalidInput)
+	}
+	if parsed.RawQuery != "" || parsed.Fragment != "" || (parsed.Path != "" && parsed.Path != "/") {
+		return "", fmt.Errorf("%w: 代理地址不能包含路径、查询参数或片段", ErrInvalidInput)
+	}
+	parsed.Path = ""
+	return parsed.String(), nil
 }
 
 func validateKeyTransport(baseURL string, hasAPIKey bool) error {
@@ -172,6 +201,7 @@ func scanProviderWithCiphertext(scanner rowScanner) (domain.Provider, string, er
 		&provider.ID,
 		&provider.Name,
 		&provider.BaseURL,
+		&provider.ProxyURL,
 		&ciphertext,
 		&enabled,
 		&createdAt,

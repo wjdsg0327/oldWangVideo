@@ -66,11 +66,19 @@ func (c *Client) generateAPIKeyFunImage(ctx context.Context, request GenerateReq
 	}
 	endpoint := c.endpoint("images/generations")
 	if request.Capability == CapabilityImageToImage {
-		source, err := sourceAsDataURL(request)
-		if err != nil {
-			return MediaResult{}, err
+		sources := sourceImageValues(request)
+		if len(sources) == 0 {
+			source, err := sourceAsDataURL(request)
+			if err != nil {
+				return MediaResult{}, err
+			}
+			sources = []string{source}
 		}
-		payload["images"] = []map[string]string{{"image_url": source}}
+		images := make([]map[string]string, 0, len(sources))
+		for _, source := range sources {
+			images = append(images, map[string]string{"image_url": source})
+		}
+		payload["images"] = images
 		payload["quality"] = "auto"
 		endpoint = c.endpoint("images/edits")
 	}

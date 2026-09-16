@@ -7,6 +7,7 @@ import {
   Eye,
   EyeOff,
   KeyRound,
+  Network,
   Plus,
   RefreshCw,
   Save,
@@ -27,7 +28,7 @@ const keyVisible = ref(false);
 const manualOpen = ref(false);
 const connection = ref<{ success: boolean; latencyMs?: number; message: string } | null>(null);
 
-const form = reactive({ name: "", baseUrl: "", apiKey: "", enabled: true, presetId: "" });
+const form = reactive({ name: "", baseUrl: "", proxyUrl: "", apiKey: "", enabled: true, presetId: "" });
 const manual = reactive({ remoteId: "", name: "", capabilities: [] as Capability[], enabled: true });
 
 const selectedProvider = computed(() => store.providers.find((provider) => provider.id === selectedId.value) || null);
@@ -43,14 +44,14 @@ const capabilityOptions: { value: Capability; label: string }[] = [
 
 function beginNew() {
   selectedId.value = null;
-  Object.assign(form, { name: "", baseUrl: "", apiKey: "", enabled: true, presetId: "" });
+  Object.assign(form, { name: "", baseUrl: "", proxyUrl: "", apiKey: "", enabled: true, presetId: "" });
   connection.value = null;
   editing.value = true;
 }
 
 function beginEdit(provider: Provider) {
   selectedId.value = provider.id;
-  Object.assign(form, { name: provider.name, baseUrl: provider.baseUrl, apiKey: "", enabled: provider.enabled, presetId: "" });
+  Object.assign(form, { name: provider.name, baseUrl: provider.baseUrl, proxyUrl: provider.proxyUrl || "", apiKey: "", enabled: provider.enabled, presetId: "" });
   connection.value = null;
   editing.value = true;
 }
@@ -69,7 +70,7 @@ async function saveProvider() {
   }
   saving.value = true;
   try {
-    const provider = await store.saveProvider(selectedId.value, { name: form.name, baseUrl: form.baseUrl, apiKey: form.apiKey, enabled: form.enabled });
+    const provider = await store.saveProvider(selectedId.value, { name: form.name, baseUrl: form.baseUrl, proxyUrl: form.proxyUrl, apiKey: form.apiKey, enabled: form.enabled });
     selectedId.value = provider.id;
     form.apiKey = "";
   } finally {
@@ -165,7 +166,7 @@ onMounted(() => {
       <div v-else class="provider-list">
         <button v-for="provider in store.providers" :key="provider.id" type="button" class="provider-row" :class="{ active: selectedId === provider.id }" @click="beginEdit(provider)">
           <span class="provider-symbol">{{ provider.name.slice(0, 1).toUpperCase() }}</span>
-          <span class="provider-copy"><strong>{{ provider.name }}</strong><small>{{ provider.baseUrl }}</small></span>
+          <span class="provider-copy"><strong>{{ provider.name }}</strong><small>{{ provider.baseUrl }}{{ provider.proxyUrl ? " · 经代理" : "" }}</small></span>
           <span class="provider-health" :class="{ enabled: provider.enabled }">{{ provider.enabled ? "启用" : "停用" }}</span>
         </button>
       </div>
@@ -183,6 +184,7 @@ onMounted(() => {
           <label class="field"><span>预设模板</span><select v-model="form.presetId" @change="applyPreset"><option value="">手动配置</option><option v-for="preset in store.presets" :key="preset.id" :value="preset.id">{{ preset.name }}{{ preset.local ? " · 本地" : "" }}</option></select></label>
           <label class="field"><span>供应商名称</span><input v-model="form.name" placeholder="例如：硅基流动" /></label>
           <label class="field"><span>Base URL</span><input v-model="form.baseUrl" placeholder="https://api.example.com/v1" /></label>
+          <label class="field"><span>请求代理（可选）</span><div class="input-with-action proxy-input"><Network :size="16" /><input v-model="form.proxyUrl" placeholder="http://127.0.0.1:7890" /></div><small class="field-hint">支持 HTTP、HTTPS、SOCKS5；留空则使用系统环境代理设置</small></label>
           <label class="field"><span>API Key</span><div class="input-with-action"><KeyRound :size="16" /><input v-model="form.apiKey" :type="keyVisible ? 'text' : 'password'" autocomplete="new-password" :placeholder="selectedProvider?.hasApiKey ? '已保存，留空则不修改' : '本地服务可留空'" /><button type="button" :title="keyVisible ? '隐藏密钥' : '显示密钥'" @click="keyVisible = !keyVisible"><EyeOff v-if="keyVisible" :size="16" /><Eye v-else :size="16" /></button></div></label>
           <label class="toggle-field"><span><strong>启用供应商</strong><small>停用后不会出现在生成目标中</small></span><input v-model="form.enabled" type="checkbox" /><i></i></label>
           <div class="form-actions">

@@ -794,6 +794,7 @@ export class Provider {
     "id": number;
     "name": string;
     "baseUrl": string;
+    "proxyUrl"?: string;
     "hasApiKey": boolean;
     "enabled": boolean;
     "createdAt": string;
@@ -841,6 +842,7 @@ export class Provider {
 export class ProviderCreateInput {
     "name": string;
     "baseUrl": string;
+    "proxyUrl"?: string;
     "apiKey": string;
     "enabled": boolean;
 
@@ -921,6 +923,7 @@ export class ProviderPreset {
 export class ProviderUpdateInput {
     "name": string;
     "baseUrl": string;
+    "proxyUrl"?: string;
     "apiKey"?: string | null;
     "enabled": boolean;
 

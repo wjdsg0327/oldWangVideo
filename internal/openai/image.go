@@ -47,6 +47,9 @@ func normalizeGenerateRequest(request GenerateRequest) GenerateRequest {
 
 func (c *Client) generateImage(ctx context.Context, request GenerateRequest, onProgress ProgressFunc) (MediaResult, error) {
 	emitProgress(onProgress, Progress{Stage: "提交图片请求", Status: "running", Progress: 10})
+	if request.Capability == CapabilityImageToImage && len(sourceImageValues(request)) > 1 && (c.profile == ProfileSiliconFlow || c.profile == ProfileTogether) {
+		return MediaResult{}, &APIError{Code: "multiple_source_images_unsupported", Message: "当前供应商协议只支持一张来源图片"}
+	}
 	if c.profile == ProfileAPIKeyFun {
 		return c.generateAPIKeyFunImage(ctx, request, onProgress)
 	}
@@ -71,6 +74,7 @@ func (c *Client) imageJSONPayload(request GenerateRequest) map[string]any {
 		"model":  request.Model,
 		"prompt": request.Prompt,
 	}
+	sources := sourceImageValues(request)
 	switch c.profile {
 	case ProfileSiliconFlow:
 		payload["image_size"] = request.Size
@@ -78,8 +82,8 @@ func (c *Client) imageJSONPayload(request GenerateRequest) map[string]any {
 		if request.NegativePrompt != "" {
 			payload["negative_prompt"] = request.NegativePrompt
 		}
-		if request.Capability == CapabilityImageToImage {
-			payload["image"] = request.SourceImageData
+		if request.Capability == CapabilityImageToImage && len(sources) > 0 {
+			payload["image"] = sources[0]
 		}
 	case ProfileTogether:
 		payload["n"] = request.Count
@@ -87,8 +91,8 @@ func (c *Client) imageJSONPayload(request GenerateRequest) map[string]any {
 			payload["width"] = width
 			payload["height"] = height
 		}
-		if request.Capability == CapabilityImageToImage {
-			payload["image_url"] = request.SourceImageData
+		if request.Capability == CapabilityImageToImage && len(sources) > 0 {
+			payload["image_url"] = sources[0]
 		}
 	default:
 		payload["n"] = request.Count
@@ -98,7 +102,7 @@ func (c *Client) imageJSONPayload(request GenerateRequest) map[string]any {
 }
 
 func (c *Client) generateOpenAIImageEdit(ctx context.Context, request GenerateRequest, onProgress ProgressFunc) (MediaResult, error) {
-	imageData, filename, err := c.loadSourceImage(ctx, request)
+	images, err := c.loadSourceImages(ctx, request)
 	if err != nil {
 		return MediaResult{}, err
 	}
@@ -112,18 +116,28 @@ func (c *Client) generateOpenAIImageEdit(ctx context.Context, request GenerateRe
 	}
 	_ = writer.WriteField("n", fmt.Sprint(request.Count))
 	_ = writer.WriteField("size", request.Size)
-	imageHeader := make(textproto.MIMEHeader)
-	imageHeader.Set("Content-Disposition", mime.FormatMediaType("form-data", map[string]string{
-		"name":     "image",
-		"filename": filename,
-	}))
-	imageHeader.Set("Content-Type", http.DetectContentType(imageData))
-	part, err := writer.CreatePart(imageHeader)
-	if err != nil {
-		return MediaResult{}, err
+	fieldName := "image"
+	if len(images) > 1 {
+		fieldName = "image[]"
 	}
-	if _, err := part.Write(imageData); err != nil {
-		return MediaResult{}, err
+	for index, image := range images {
+		imageHeader := make(textproto.MIMEHeader)
+		filename := image.filename
+		if len(images) > 1 {
+			filename = fmt.Sprintf("source-%02d%s", index+1, filepath.Ext(filename))
+		}
+		imageHeader.Set("Content-Disposition", mime.FormatMediaType("form-data", map[string]string{
+			"name":     fieldName,
+			"filename": filename,
+		}))
+		imageHeader.Set("Content-Type", http.DetectContentType(image.data))
+		part, err := writer.CreatePart(imageHeader)
+		if err != nil {
+			return MediaResult{}, err
+		}
+		if _, err := part.Write(image.data); err != nil {
+			return MediaResult{}, err
+		}
 	}
 	if err := writer.Close(); err != nil {
 		return MediaResult{}, err
@@ -150,6 +164,48 @@ func (c *Client) generateOpenAIImageEdit(ctx context.Context, request GenerateRe
 	}
 	emitProgress(onProgress, Progress{Stage: "图片已生成", Status: "succeeded", Progress: 100})
 	return result, nil
+}
+
+type loadedSourceImage struct {
+	data     []byte
+	filename string
+}
+
+func (c *Client) loadSourceImages(ctx context.Context, request GenerateRequest) ([]loadedSourceImage, error) {
+	values := sourceImageValues(request)
+	if len(values) == 0 && request.SourceImagePath == "" {
+		return nil, &APIError{Code: "missing_source_image", Message: "请先选择来源图片"}
+	}
+	if len(values) == 0 {
+		data, filename, err := c.loadSourceImage(ctx, request)
+		if err != nil {
+			return nil, err
+		}
+		return []loadedSourceImage{{data: data, filename: filename}}, nil
+	}
+	result := make([]loadedSourceImage, 0, len(values))
+	for _, value := range values {
+		current := request
+		current.SourceImagePath = ""
+		current.SourceImageData = value
+		current.SourceImages = nil
+		data, filename, err := c.loadSourceImage(ctx, current)
+		if err != nil {
+			return nil, err
+		}
+		result = append(result, loadedSourceImage{data: data, filename: filename})
+	}
+	return result, nil
+}
+
+func sourceImageValues(request GenerateRequest) []string {
+	if len(request.SourceImages) > 0 {
+		return request.SourceImages
+	}
+	if strings.TrimSpace(request.SourceImageData) != "" {
+		return []string{request.SourceImageData}
+	}
+	return nil
 }
 
 func parseImageResponse(raw []byte) (MediaResult, error) {

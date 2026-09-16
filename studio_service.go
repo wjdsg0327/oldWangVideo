@@ -24,7 +24,10 @@ import (
 	taskmanager "oldwangvideo/internal/task"
 )
 
-const maxSourceImageSize = 25 << 20
+const (
+	maxSourceImageSize  = 25 << 20
+	maxSourceImageCount = 16
+)
 
 type BootstrapState struct {
 	Data        domain.Bootstrap      `json:"data"`
@@ -181,7 +184,7 @@ func (s *StudioService) TestProvider(id int64) (openaiapi.ConnectivityResult, er
 	defer cancel()
 	var result openaiapi.ConnectivityResult
 	err = database.UseProviderCredentials(ctx, id, func(provider domain.Provider, apiKey string) error {
-		client, err := openaiapi.NewClient(provider.BaseURL, apiKey, 30*time.Second)
+		client, err := openaiapi.NewClientWithProxy(provider.BaseURL, apiKey, provider.ProxyURL, 30*time.Second)
 		if err != nil {
 			return err
 		}
@@ -203,7 +206,7 @@ func (s *StudioService) RefreshProviderModels(id int64) ([]domain.Model, error) 
 	defer cancel()
 	remoteModels := make([]domain.RemoteModel, 0)
 	err = database.UseProviderCredentials(ctx, id, func(provider domain.Provider, apiKey string) error {
-		client, err := openaiapi.NewClient(provider.BaseURL, apiKey, 45*time.Second)
+		client, err := openaiapi.NewClientWithProxy(provider.BaseURL, apiKey, provider.ProxyURL, 45*time.Second)
 		if err != nil {
 			return err
 		}
@@ -347,14 +350,25 @@ func (s *StudioService) DeleteHistories(historyIDs []int64) error {
 	return database.DeleteHistories(ctx, historyIDs)
 }
 
-func (s *StudioService) ChooseSourceImage() (domain.ImageInput, error) {
-	path, err := s.app.Dialog.OpenFile().
+func (s *StudioService) ChooseSourceImage() ([]domain.ImageInput, error) {
+	paths, err := s.app.Dialog.OpenFile().
 		AddFilter("图片文件", "*.png;*.jpg;*.jpeg;*.webp").
-		PromptForSingleSelection()
-	if err != nil || path == "" {
-		return domain.ImageInput{}, err
+		PromptForMultipleSelection()
+	if err != nil || len(paths) == 0 {
+		return nil, err
 	}
-	return readImageInput(path)
+	if len(paths) > maxSourceImageCount {
+		return nil, fmt.Errorf("一次最多选择 %d 张来源图片", maxSourceImageCount)
+	}
+	images := make([]domain.ImageInput, 0, len(paths))
+	for _, path := range paths {
+		image, err := readImageInput(path)
+		if err != nil {
+			return nil, fmt.Errorf("%s：%w", filepath.Base(path), err)
+		}
+		images = append(images, image)
+	}
+	return images, nil
 }
 
 func (s *StudioService) DownloadTaskResult(taskID string) (string, error) {
