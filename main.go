@@ -2,9 +2,11 @@ package main
 
 import (
 	"embed"
+	"fmt"
 	"log"
 	"os"
 	"path/filepath"
+	"strings"
 
 	"github.com/wailsapp/wails/v3/pkg/application"
 	"github.com/wailsapp/wails/v3/pkg/events"
@@ -23,6 +25,14 @@ func init() {
 }
 
 func main() {
+	// MCP 模式使用标准输入输出服务，避免启动桌面窗口占用本地客户端的通信流。
+	if hasMCPArgument(os.Args[1:]) {
+		if err := runMCPCommand(os.Args[1:]); err != nil {
+			fmt.Fprintln(os.Stderr, "MCP 服务启动失败:", err)
+			os.Exit(1)
+		}
+		return
+	}
 	dataDir, outputDir, err := applicationDirectories()
 	if err != nil {
 		log.Fatal(err)
@@ -90,6 +100,16 @@ func main() {
 	if err := app.Run(); err != nil {
 		log.Fatal(err)
 	}
+}
+
+// hasMCPArgument 仅识别显式的 --mcp 开关，避免误把桌面端参数切换为服务模式。
+func hasMCPArgument(args []string) bool {
+	for _, arg := range args {
+		if arg == "--mcp" || strings.HasPrefix(arg, "--mcp=") {
+			return true
+		}
+	}
+	return false
 }
 
 func applicationDirectories() (string, string, error) {

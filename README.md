@@ -38,6 +38,70 @@ wails3 build
 
 Windows 构建产物会写入 `bin/`。开发构建的运行时数据保存在项目根目录；独立发布后保存在 EXE 所在目录，其中 `oldwangvideo.db` 是 SQLite 数据库，`vault.key` 是加密密钥，生成媒体位于 `outputs/`。
 
+## MCP 生图服务
+
+项目内置 MCP stdio 服务，供本地 GPT、Claude Desktop、zcode 等支持 MCP 的客户端调用文生图和图生图。服务与桌面端共用 `oldwangvideo.db`、`vault.key` 以及供应商/模型配置；先在桌面端“供应商与模型”页保存 API Key，并为目标模型勾选“文生图”或“图生图”能力。
+
+在项目根目录启动开发版 MCP 服务：
+
+```powershell
+go run . --mcp
+```
+
+发布版可直接启动 EXE：
+
+```powershell
+bin\OldWangVideo.exe --mcp
+```
+
+需要指定数据和输出目录时追加参数（目录不存在会自动创建）：
+
+```powershell
+bin\OldWangVideo.exe --mcp --data-dir D:\oldwangvideo-data --output-dir D:\oldwangvideo-data\outputs
+```
+
+MCP 使用 newline-delimited JSON-RPC over stdio；客户端配置中的 `command` 必须直接启动上述命令，标准输出只保留协议消息。Claude Desktop 配置示例（Windows `claude_desktop_config.json`）：
+
+```json
+{
+  "mcpServers": {
+    "oldwangvideo": {
+      "command": "D:\\Documents\\go\\oldWangVideo\\bin\\OldWangVideo.exe",
+      "args": [
+        "--mcp",
+        "--data-dir",
+        "D:\\Documents\\go\\oldWangVideo",
+        "--output-dir",
+        "D:\\Documents\\go\\oldWangVideo\\outputs"
+      ]
+    }
+  }
+}
+```
+
+GPT 或 zcode 的 MCP 配置项同样填写 `command` 和 `args`；不同客户端的外层键名可能不同，但参数保持一致：
+
+```json
+{
+  "command": "C:\\path\\to\\OldWangVideo.exe",
+  "args": [
+    "--mcp",
+    "--data-dir",
+    "C:\\path\\to\\oldwangvideo-data",
+    "--output-dir",
+    "C:\\path\\to\\oldwangvideo-data\\outputs"
+  ]
+}
+```
+
+支持的工具如下：
+
+- `list_image_models`：列出已启用且标注图片能力的模型，返回 `providerId`、`modelId` 和远端模型 ID。
+- `generate_image`：文生图，必填 `prompt`；可选 `provider_id`、`model_id`、`model`、`negative_prompt`、`size`、`width`、`height`、`count`。
+- `image_to_image`：图生图，除上述参数外需要 `images` 或 `image_paths`；图片可使用本地路径、`http(s)` URL、`data:` URL，或带 `base64`/`url`/`mimeType` 字段的对象。
+
+工具调用会等待任务完成，并返回 MCP `image` 内容和本地文件路径。若有多个候选模型，请先调用 `list_image_models`，再把返回的 `model_id` 传给生成工具。MCP 服务只支持 stdio，不提供 HTTP 端点；不要把日志写入 stdout，以免破坏协议通信。
+
 ## 供应商配置
 
 在“供应商与模型”页填写显示名称、Base URL 和 API Key。需要代理时，可为该供应商填写 `http://127.0.0.1:7890`、`socks5://127.0.0.1:1080` 等代理地址；测试连接、模型同步、生成请求和媒体下载都会使用它，留空则沿用系统环境代理设置。可从硅基流动、Together AI、Fireworks、本地 vLLM 或 Ollama 预设开始；保存后用“测试连接”访问 `{Base URL}/models`，再为每个模型明确标注支持的能力。
